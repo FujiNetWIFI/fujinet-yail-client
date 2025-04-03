@@ -1,6 +1,6 @@
 # FujiNet YAIL (Yet Another Image Loader) Client
 
-A cc65-based image loading and viewing application for the Atari 8-bit platform that works with the FujiNet hardware. YAIL allows you to load and view images from network sources directly on your Atari computer.
+A cc65-based image loading and viewing application for 8-bit systems that works with the FujiNet hardware for image loading. YAIL allows you to load and view images from network sources directly on your FujiNet equipped computer.
 
 ## Features
 
@@ -43,6 +43,22 @@ make TARGETS="atari" all
 
 - The project uses a custom linker configuration file (`src/atari/yail.atari-xex.cfg`) that defines a `FRAMEBUFFER` memory area of at least 20KB
 - FujiNet library version 4.7.4 is specified in the Makefile, but version 4.5.1 has been confirmed to work well
+
+## Default YAIL Backend Server
+
+The YAIL client connects to a backend server that provides the images to be displayed. The default server URL is defined in `src/atari/settings.c` on line 16:
+
+```c
+#define DEFAULT_URL "N:TCP://fujinet.online:5556/"
+```
+
+To change the default server:
+
+1. Edit this line with your preferred server address
+2. The format must be: `N:TCP://[server-address]:[port]/`
+3. Rebuild the application with `make clean` followed by `make all` and `make disk`
+
+The user can also change this URL at runtime through the console interface, but modifying the default ensures the client connects to your server automatically on first run.
 
 ## Output Files
 
