@@ -6,6 +6,7 @@
 #include "settings.h"
 #include "types.h"
 #include "vbxe.h"
+#include "console.h"
 
 #include <atari.h>
 #include <conio.h>
@@ -20,8 +21,6 @@ extern byte buff[];
 extern ImageData image;
 extern Settings settings;
 extern struct __vbxe* VBXE;
-
-//byte palette[256 * 3];
 
 void show_error_and_close_network(const char* message)
 {
@@ -162,6 +161,17 @@ byte load_front_buffer()
                         free(palette);
                     }
                     break;
+                case ERROR_BLOCK:  // Error block
+                    // Read the error message
+                    num_bytes = network_read(settings.url, (uint8_t*)buff, (uint16_t)block_header.size);
+                    if(0 > num_bytes)
+                    {
+                        show_error_and_close_network("Error reading error message\n");
+                        break;
+                    }
+                    buff[block_header.size] = 0x0;
+                    cprintf("Error: %s\n", buff);
+                    break;
                 case XDL_BLOCK:  // XDL
                 default:
                     show_error_and_close_network("Unknown block type\n\r");
@@ -198,7 +208,7 @@ quit:
     return 0;
 }
 
-char stream_image(char* args[], const byte video)
+char stream_image(char* args[])
 {
     ushort i = 0;
     char input;
@@ -236,11 +246,11 @@ char stream_image(char* args[], const byte video)
     }
 
     memset(buff, 0, 256);
-    if(0 == strncmp(args[0], "http", 4))
+    if(0 == strncmp(args[1], "http", 4))
     {
         // Build up the search string
         memcpy(buff, "showurl ", 8);
-        for(i = 0; i < 8; ++i)
+        for(i = 1; i < NUM_TOKENS; ++i)
         {
             if(0x0 == args[i])
                 break;
@@ -250,11 +260,11 @@ char stream_image(char* args[], const byte video)
             strcat(buff, args[i]);
         }
     }
-    else if(args[0])
+    else if((0 == strncmp(args[0], "search", 3) || (0 == strncmp(args[0], "gen", 3))) && (0 != args[1]))
     {
         // Build up the search string
-        memcpy(buff, "search", 6);
-        for(i = 0; i < 8; ++i)
+        strncpy(buff, args[0], 16);         
+        for(i = 1; i < NUM_TOKENS; ++i)
         {
             if(0x0 == args[i])
                 break;
@@ -268,7 +278,7 @@ char stream_image(char* args[], const byte video)
         if(i > 0)
             strcat((char*)buff, "\"");
     }
-    else if(video)
+    else if(0 == strncmp(args[0], "video", 3))
         memcpy(buff, "video", 5);
     else  // no search terms provided for the stream command so just stream files from the server (path must be set on server startup)
         memcpy(buff, "files", 5);
@@ -311,7 +321,7 @@ char stream_image(char* args[], const byte video)
         }
 
         // Read the image data
-        if(video)
+        if(0 == strncmp(args[0], "video", 3))
         {
             // Load data into the buffer that isn't being shown
             #define SWAP_DISPLAY_LISTS
