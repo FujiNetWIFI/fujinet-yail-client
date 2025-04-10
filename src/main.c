@@ -51,7 +51,7 @@ void process_command_line(char* argv[])
             strcpy(settings.url, argv[2]);
             break;
         case 's':
-            stream_image(&argv[2], 0);
+            stream_image(&argv[1]);
             break;
     }
 }

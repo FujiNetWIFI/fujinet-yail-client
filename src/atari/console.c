@@ -40,7 +40,7 @@ char CONSOLE_BUFF[GFX_0_MEM_LINE * CONSOLE_LINES];
 #else
 #define CONSOLE_BUFF ((byte*)((ushort*)ORG_SDLIST)[2])
 #endif
-char* tokens[8];
+char* tokens[NUM_TOKENS];
 
 void reset_console(void)
 {
@@ -56,7 +56,7 @@ byte get_tokens(byte* buff, byte endx)
     byte count = 0;
     byte state = SEARCHING_FOR_TOKEN;
     byte i;
-    for(i = 0; i < endx; ++i)
+    for(i = 0; i < endx && count < NUM_TOKENS; ++i)
     {
         switch(state)
         {
@@ -114,7 +114,8 @@ char process_command(byte ntokens)
         "load - [filename] Load and display file\n\r"
         "save - [filename] Save image to YAI file\n\r"
         #else
-        "stream - [arg0...argN] Stream images\n\r"
+        "search - [arg0...argN] Find images\n\r"
+        "gen    - [arg0...argN] Create AI images\n\r"
         "video  - Stream video\n\r"
         #endif
         );
@@ -227,14 +228,19 @@ char process_command(byte ntokens)
         }
     }
 
-    if(0 == strncmp(tokens[0], "stream", 3))
+    if(0 == strncmp(tokens[0], "search", 3))
     {
-        return stream_image(&tokens[1], 0);
+        return stream_image(tokens);
+    }
+
+    if(0 == strncmp(tokens[0], "gen", 3))
+    {
+        return stream_image(tokens);
     }
 
     if(0 == strncmp(tokens[0], "video", 3))
     {
-        return stream_image(&tokens[1], 1);
+        return stream_image(tokens);
     }
 
     if(strncmp(tokens[0], "showurl", 3) == 0)
@@ -253,7 +259,7 @@ char process_command(byte ntokens)
             cputs("\n\r");
             #endif
 
-            return stream_image(&tokens[1], 0);
+            return stream_image(tokens);
         }
     }
 
@@ -265,7 +271,7 @@ void start_console(char first_char)
     byte* gfx8_console_dl = (byte*)graphics_8_console_dl;
     byte* gfx9_console_dl = (byte*)graphics_9_console_dl;
     byte* console_buff = (byte*)CONSOLE_BUFF;
-    byte x = 0;
+    uint8_t x = 0;   // Char position in the input line
 
     // Fix addresses for graphics display lists for the console buffer
     POKEW(gfx8_console_dl + 2, (ushort)version);
@@ -280,7 +286,6 @@ void start_console(char first_char)
     while(true)
     {
         byte input = first_char?first_char:cgetc();
-        byte x = wherex();
 
         // Already used so reset
         first_char = 0x00;
@@ -356,7 +361,7 @@ void start_console(char first_char)
                     first_char = process_command(ntokens);
 
                     // Clear the tokens for the next command
-                    for(i = 0; i < 7; ++i)
+                    for(i = 0; i < NUM_TOKENS; ++i)
                         tokens[i] = 0x0;
                 }
 
@@ -373,8 +378,11 @@ void start_console(char first_char)
             case CH_DEL:
                 if(x > 0)
                 {
-                    CONSOLE_BUFF[x-1] = 0x0;
-                    gotox(x-1);
+                    --x;
+                    if (x < 0)
+                        x = 0;
+                    CONSOLE_BUFF[x] = 0x0;
+                    gotoxy(x%40, x/40);
                 }
             break;
 
@@ -395,7 +403,14 @@ void start_console(char first_char)
                     console_state = true;
                     show_console();
                 }
-                cputc(input);
+
+                ++x;
+                if (x >= WORKING_BUFF_SIZE)
+                {
+                    x = WORKING_BUFF_SIZE - 1;
+                }
+                else
+                    cputc(input);
         }
     }
 }
