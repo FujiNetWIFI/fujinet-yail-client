@@ -12,180 +12,79 @@
 #define FN_APP_ID 0x01
 #define FN_URL_KEY_ID 0x01
 #define FN_GFX_KEY_ID 0x02
+#define FN_AIMODEL_KEY_ID 0x03
 
-#define DEFAULT_URL "N:TCP://192.168.251.209:5556/"
 #define DEFAULT_GFX_MODE GRAPHICS_8
+#define DEFAULT_URL "N:TCP://fujinet.org:5556/"
+#define DEFAULT_AI_MODEL_NAME "dall-e-3"
 
 // Globals
-Settings settings;
+Settings settings = {
+    DEFAULT_GFX_MODE,
+    DEFAULT_URL,
+    DEFAULT_AI_MODEL_NAME
+};
 
 // Externals
 extern byte buff[];
 
-/*
-unsigned char sio_openkey(AppKeyDataBlock* data, unsigned char open_mode, unsigned char key)
+// This requires that the default values are set in the arguments.
+uint16_t read_or_create_appkey(uint8_t key_id, uint16_t len, char* data)
 {
-    data->open.creator = FN_CREATOR_ID;
-    data->open.app = FN_APP_ID;
-    data->open.key = key;
-    data->open.mode = open_mode;
-    data->open.reserved = 0x00;
-
-    return fn_io_appkey_open(&data->open);
-}
-*/
-
-uint8_t get_settings()
-{
-    #if 0
-    AppKeyDataBlock data;
-    uint8_t r;
-
-    // Get/Create the URL setting
-    memset(&data, 0, sizeof(AppKeyDataBlock));
-
-    r = sio_openkey(&data, 0, FN_URL_KEY_ID);
-    if (0 == r)
-    {
-        r = fn_io_appkey_read(&data.read);  // Try to read the key
-
-        if (1 == r) // key doesn't exist. write the default.
-        {
-            byte keylen = strlen(DEFAULT_URL);
-
-            strncpy(settings.url, DEFAULT_URL, MAX_APPKEY_LEN);
-            sio_openkey(&data, 1, FN_URL_KEY_ID);
-            strncpy((char *)data.write.value, settings.url, MAX_APPKEY_LEN);
-            r = fn_io_appkey_write(keylen, &data.write);
-
-            if(1 == r)
-                return r;
-        }
-        else
-        {
-            memset(settings.url, 0, SERVER_URL_SIZE);
-            strncpy(settings.url, (char*)data.read.value, data.read.length);
-        }
-    }
-    else // use default
-        strncpy(settings.url, DEFAULT_URL, MAX_APPKEY_LEN);
-
-    // Get/Create the gfx mode setting
-    memset(&data, 0, sizeof(AppKeyDataBlock));
-
-    r = sio_openkey(&data, 0, FN_GFX_KEY_ID);
-    if (0 == r)
-    {
-        r = fn_io_appkey_read(&data.read);    // Try to read the key
-
-        if (1 == r) // key doesn't exist. write the default.
-        {
-            sio_openkey(&data, 1, FN_GFX_KEY_ID);
-            data.write.value[0] = DEFAULT_GFX_MODE;
-            r = fn_io_appkey_write(1, &data.write);
-
-            if(1 == r)
-                return r;
-
-            setGraphicsMode(DEFAULT_GFX_MODE);   
-        }
-        else
-            setGraphicsMode(((byte*)data.read.value)[0]); // for a test  | GRAPHICS_BUFFER_TWO);
-    }
-    else // use default
-        setGraphicsMode(DEFAULT_GFX_MODE);
-    #endif
-
     uint16_t count;
 
     // Set the base key information
     fuji_set_appkey_details(FN_CREATOR_ID, (uint8_t)FN_APP_ID, MAX_APPKEY_LEN);
 
-    // URL Read the key
-    if (0 == fuji_read_appkey(FN_URL_KEY_ID, &count, (uint8_t *)buff))
+    // Try to read the key
+    if (fuji_read_appkey(key_id, &count, (uint8_t*)&buff[0]) > 0)
     {
-        uint16_t keylen = strlen(DEFAULT_URL);
-
-        // Key doesn't exist. Write the default URL
-        strncpy(settings.url, DEFAULT_URL, SERVER_URL_SIZE);
-        fuji_write_appkey(FN_URL_KEY_ID, keylen, (uint8_t *)&settings.url);
+        // // Key was read so copy over the values
+        memcpy(data, buff, count);
     }
-    else // key exists
+    else
     {
-        // Already in settings.url
-        strncpy(settings.url, (char*)buff, count);
-        settings.url[count] = 0x00;
+        // Key doesn't exist. Write the default data
+        fuji_write_appkey(key_id, len, (uint8_t*)data);
     }
 
-    // GFX Read the key
-    if (0 == fuji_read_appkey(FN_GFX_KEY_ID, &count, (uint8_t *)buff))
-    {
-        // Key doesn't exist. Write the default GFX mode
-        buff[0] = DEFAULT_GFX_MODE;
-        fuji_write_appkey(FN_GFX_KEY_ID, 1, (uint8_t *)&buff[0]);
-    }
-    setGraphicsMode((byte)buff[0]);
+    return count;
+}
+
+uint8_t get_settings()
+{
+    uint16_t count; // Max key size
+
+    count = 1;
+    read_or_create_appkey((uint8_t)FN_GFX_KEY_ID, count, (uint8_t *)&settings.gfx_mode);
+
+    count = strlen(DEFAULT_URL) + 1;
+    read_or_create_appkey((uint8_t)FN_URL_KEY_ID, count, (uint8_t *)&(settings.url[0]));
+
+    count = strlen(DEFAULT_AI_MODEL_NAME) + 1;
+    read_or_create_appkey((uint8_t)FN_AIMODEL_KEY_ID, count, (uint8_t *)&(settings.ai_model_name[0]));
 
     // Add more settings below...
+
+    // Apply the graphics mode setting.  Really should be done outside of here.
+    setGraphicsMode(settings.gfx_mode);
 
     return 0;
 }
 
 uint8_t put_settings(byte select)
 {
-    #if 0
-    AppKeyDataBlock data;
-    uint8_t r;
-
-    switch(select)
-    {
-        case SETTINGS_NONE:
-            return 0;
-        case SETTINGS_URL:
-            {
-                byte keylen = strlen(settings.url);
-
-                r = sio_openkey(&data, 1, FN_URL_KEY_ID);
-
-                if (1 == r)
-                    return 1;
-                    
-                strncpy((char *)data.write.value, settings.url, MAX_APPKEY_LEN);
-                r = fn_io_appkey_write(keylen, &data.write);
-
-                if(1 == r)
-                    return r;
-            }
-            break;
-        case SETTINGS_GFX:
-            {
-                r = sio_openkey(&data, 1, FN_GFX_KEY_ID);
-
-                if (1 == r)
-                    return 1;
-
-                data.write.value[0] = settings.gfx_mode & ~GRAPHICS_CONSOLE_EN;  // Don't capture the console bit
-                r = fn_io_appkey_write(1, &data.write);
-
-                if(1 == r)
-                    return r;
-            }
-            break;
-        default:
-            return 1;
-    }
-    #endif
     switch(select)
     {
         case SETTINGS_NONE:
             return 0;
         case SETTINGS_URL:
         {
-            uint16_t urllen = strlen(settings.url);
+            uint16_t len = strlen(settings.url) + 1;
 
             // Configure the key for writing
             fuji_set_appkey_details(FN_CREATOR_ID, (uint8_t)FN_APP_ID, MAX_APPKEY_LEN);
-            return fuji_write_appkey(FN_URL_KEY_ID, urllen, (uint8_t *)settings.url);
+            return fuji_write_appkey(FN_URL_KEY_ID, len, (uint8_t *)settings.url);
         }
         break;
         case SETTINGS_GFX:
@@ -194,7 +93,24 @@ uint8_t put_settings(byte select)
             return fuji_write_appkey(FN_GFX_KEY_ID, 1, (uint8_t *)&settings.gfx_mode);
         }
         break;
+        case SETTINGS_AI_MODEL:
+        {
+            uint16_t len = strlen(settings.ai_model_name) + 1;
+
+            fuji_set_appkey_details(FN_CREATOR_ID, (uint8_t)FN_APP_ID, MAX_APPKEY_LEN);
+            return fuji_write_appkey(FN_AIMODEL_KEY_ID, len, (uint8_t *)settings.ai_model_name);
+        }
+        break;
         default:
             return 0;
     }
+}
+
+void print_settings(uint8_t mode, char* url, char* ai_model)
+{
+    // Print the settings
+    cputs("Settings:\n\r");
+    cprintf("GFX: %02X %s\n\r", mode, graphics_mode_to_string(mode));
+    cprintf("URL: %s\n\r", url);
+    cprintf("MODEL: %s\n\r", ai_model);
 }
