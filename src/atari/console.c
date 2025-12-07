@@ -34,6 +34,7 @@ extern byte buff[];
 
 // Globals
 bool console_state = false;
+uint8_t SAVED_MODE = GRAPHICS_8;
 
 #ifdef CONSOLE_USE_LOCAL_BUFFER
 char CONSOLE_BUFF[GFX_0_MEM_LINE * CONSOLE_LINES];
@@ -100,22 +101,26 @@ char process_command(byte ntokens)
 
     if(strncmp(tokens[0], "help", 4) == 0)
     {
-        byte SAVED_MODE = settings.gfx_mode;
+        //byte SAVED_MODE = settings.gfx_mode;
 
         setGraphicsMode(GRAPHICS_0);
         //const char help[] =
         cputs(
         "quit - Exit this utility\n\r"
         "cls  - Clear the image display\n\r"
-        "gfx  - [0,8,9,*] Set the graphics mode\n\r"
+        "gfx  - [0,8,9,20] Set the graphics mode\n\r"
+        "       0 : Text\n\r"
+        "       8,9 : ANTIC modes\n\r"
+        "       20 : VBXE 320x240@256\n\r"
         "set  - Saved settings\n\r"
         "       server [url] (N:TCP://blah.duh/)\n\r"
+        "       model [ai model name] (dall-e-3)\n\r"
         #ifdef YAIL_BUILD_FILE_LOADER
         "load - [filename] Load and display file\n\r"
         "save - [filename] Save image to YAI file\n\r"
         #else
         "search - [arg0...argN] Find images\n\r"
-        "gen    - [arg0...argN] Create AI images\n\r"
+        "generate - [prompt] AI images\n\r"
         "video  - Stream video\n\r"
         #endif
         );
@@ -182,7 +187,7 @@ char process_command(byte ntokens)
             show_error_pause("ERROR: File not specified");
         }
         #else
-            show_error_pause("ERROR: File not specified");
+            show_error_pause("ERROR: File loading not supported");
         #endif
     }
 
@@ -205,8 +210,14 @@ char process_command(byte ntokens)
     {
         if(ntokens < 3)
         {
-            show_error_pause("ERROR: Must specify a setting and value");
-        }
+            //show_error_pause("ERROR: Must specify a setting and value");
+            setGraphicsMode(GRAPHICS_0);
+
+            print_settings(SAVED_MODE, settings.url, settings.ai_model_name);
+
+            cgetc();                                  // Wait
+            setGraphicsMode(SAVED_MODE);              // Restore the graphics mode
+            }
         else
         {
             if(strncmp(tokens[1], "server", 3) == 0)
@@ -224,6 +235,11 @@ char process_command(byte ntokens)
                     // The server will use this setting to randomize the graphics per image.
                     settings.gfx_mode = '*';
                 }
+            }
+            else if(strncmp(tokens[1], "model", 5) == 0)
+            {
+                strncpy(settings.ai_model_name, tokens[2], AI_MODEL_NAME_SIZE);
+                put_settings(SETTINGS_AI_MODEL);  // save the model name on the FN
             }
         }
     }

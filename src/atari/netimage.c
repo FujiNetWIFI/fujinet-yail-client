@@ -263,13 +263,22 @@ char stream_image(char* args[])
     else if((0 == strncmp(args[0], "search", 3) || (0 == strncmp(args[0], "gen", 3))) && (0 != args[1]))
     {
         // Build up the search string
-        strncpy(buff, args[0], 16);         
+        strncpy(buff, args[0], 16); // Add the command
+
+        // Generate has a special case.  It sends the model name along with the command.  Here we append.
+        if(0 == strncmp(args[0], "gen", 3))
+        {
+            strcat((char*)buff, " ");
+            strcat((char*)buff, settings.ai_model_name);
+        }
+
+        // Append the terms or phrase surround with quotes
         for(i = 1; i < NUM_TOKENS; ++i)
         {
             if(0x0 == args[i])
                 break;
 
-            if(i > 0)
+            if(i > 1)
                 strcat((char*)buff, " ");
             else
                 strcat((char*)buff, " \"");

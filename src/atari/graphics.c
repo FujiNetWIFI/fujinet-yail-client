@@ -115,9 +115,6 @@ void restoreGraphicsState(void)
 
 void setGraphicsMode(const byte mode)
 {
-    if(mode == settings.gfx_mode)
-        return;
-
     makeDisplayList(mode);
 
     OS.color1 = 14;         // Color maximum luminance
@@ -310,6 +307,37 @@ void clearFrameBuffer(void)
         case GRAPHICS_21:
             // Not sure what to do here yet.
         break;
+    }
+}
+
+char* graphics_mode_to_string(uint8_t mode)
+{
+    switch(mode)
+    {
+        case GRAPHICS_0:
+            return "ANTIC 0";
+        case GRAPHICS_8:
+            return "ANTIC 8";
+        case GRAPHICS_9:
+            return "ANTIC 9";
+        case GRAPHICS_10:
+            return "ANTIC 10";
+        case GRAPHICS_11:
+            return "ANTIC 11";
+        case GRAPHICS_8_CONSOLE:
+            return "ANTIC 8 and 0";
+        case GRAPHICS_9_CONSOLE:
+            return "ANTIC 9 and 0";
+        case GRAPHICS_10_CONSOLE:
+            return "ANTIC 10 and 0";
+        case GRAPHICS_11_CONSOLE:
+            return "ANTIC 11 and 0";
+        case GRAPHICS_20:
+            return "VBXE 320x240@256";
+        case GRAPHICS_21:
+            return "VBXE 640x480@16";
+        default:
+            return "Unknown";
     }
 }
 

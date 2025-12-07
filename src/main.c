@@ -16,12 +16,15 @@
 #include <stdbool.h>
 
 //
+extern Settings settings;
+extern ushort ORIG_VBII_SAVE;
+extern uint8_t SAVED_MODE;
+
+//
 char version[] = "YAIL (Yet Another Image Loader) v" TOSTR(MAJOR_VERSION) "." TOSTR(MINOR_VERSION) "." TOSTR(BUILD_VERSION);
 
 byte buff[256]; // A block of memory to be used by all.
 bool done = false;
-extern Settings settings;
-extern ushort ORIG_VBII_SAVE;
 
 void help()
 {
@@ -93,6 +96,8 @@ int main(int argc, char* argv[])
                 if(ch == CH_ENTER)
                     ch = 0x00;
                 
+                SAVED_MODE = settings.gfx_mode;
+
                 show_console();
                 start_console(ch);   // send the character just entered so the console will start with it shown
             }
